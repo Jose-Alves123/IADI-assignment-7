@@ -11,14 +11,22 @@ import pt.unl.fct.iadi.novaevents.repository.AppUserRepository
 import pt.unl.fct.iadi.novaevents.repository.ClubRepository
 import pt.unl.fct.iadi.novaevents.repository.EventRepository
 import pt.unl.fct.iadi.novaevents.repository.EventTypeRepository
+import pt.unl.fct.iadi.novaevents.service.weather.OutdoorEventBadWeatherException
+import pt.unl.fct.iadi.novaevents.service.weather.OutdoorEventLocationRequiredException
+import pt.unl.fct.iadi.novaevents.service.weather.WeatherService
 
 @Service
 class EventService(
         private val eventRepository: EventRepository,
         private val clubRepository: ClubRepository,
         private val eventTypeRepository: EventTypeRepository,
-        private val appUserRepository: AppUserRepository
+        private val appUserRepository: AppUserRepository,
+        private val weatherService: WeatherService
 ) {
+
+        companion object {
+                private const val OUTDOOR_CLUB_NAME = "Hiking & Outdoors Club"
+        }
 
         fun findAll(filter: EventFilter): List<Event> {
                 return eventRepository.findAllByFilter(
@@ -48,7 +56,6 @@ class EventService(
 
         @Transactional
         fun create(clubId: Long, form: EventFormDto): Event {
-                validateUniqueName(form.name!!, null)
                 val username =
                         SecurityContextHolder.getContext().authentication?.name
                                 ?: throw IllegalStateException("Authenticated user is required")
@@ -56,6 +63,8 @@ class EventService(
                         clubRepository.findById(clubId).orElseThrow {
                                 NoSuchElementException("Club with id $clubId was not found")
                         }
+                validateOutdoorClubRules(club.name, form)
+                validateUniqueName(form.name!!, null)
                 val type = resolveType(form.type!!)
                 val owner =
                         appUserRepository.findByUsername(username)
@@ -123,5 +132,24 @@ class EventService(
         private fun normalizeOptionalText(value: String?): String? {
                 val trimmed = value?.trim().orEmpty()
                 return trimmed.ifBlank { null }
+        }
+
+        private fun validateOutdoorClubRules(clubName: String, form: EventFormDto) {
+                if (!clubName.equals(OUTDOOR_CLUB_NAME, ignoreCase = true)) {
+                        return
+                }
+
+                val location = form.location?.trim().orEmpty()
+                if (location.isBlank()) {
+                        throw OutdoorEventLocationRequiredException(
+                                "Location is required for outdoor events"
+                        )
+                }
+
+                if (weatherService.isRaining(location) == true) {
+                        throw OutdoorEventBadWeatherException(
+                                "It is currently raining at \"$location\" — outdoor events cannot be created in bad weather"
+                        )
+                }
         }
 }

@@ -20,6 +20,8 @@ import pt.unl.fct.iadi.novaevents.service.ClubService
 import pt.unl.fct.iadi.novaevents.service.DuplicateEventNameException
 import pt.unl.fct.iadi.novaevents.service.EventFilter
 import pt.unl.fct.iadi.novaevents.service.EventService
+import pt.unl.fct.iadi.novaevents.service.weather.OutdoorEventBadWeatherException
+import pt.unl.fct.iadi.novaevents.service.weather.OutdoorEventLocationRequiredException
 
 @Controller
 @RequestMapping
@@ -94,6 +96,20 @@ class EventController(
         return try {
             val created = eventService.create(clubId, eventForm)
             "redirect:/clubs/$clubId/events/${created.id}"
+        } catch (e: OutdoorEventLocationRequiredException) {
+            bindingResult.rejectValue(
+                    "location",
+                    "",
+                    e.message ?: "Location is required for outdoor events"
+            )
+            renderFormWithContext(clubId, model, false)
+        } catch (e: OutdoorEventBadWeatherException) {
+            bindingResult.rejectValue(
+                    "location",
+                    "",
+                    e.message ?: "Bad weather prevents this event from being created"
+            )
+            renderFormWithContext(clubId, model, false)
         } catch (_: DuplicateEventNameException) {
             bindingResult.rejectValue("name", "duplicate", "An event with this name already exists")
             renderFormWithContext(clubId, model, false)

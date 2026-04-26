@@ -12,8 +12,8 @@
                     <h1 class="h3 mb-3" th:text="${isEdit} ? 'Edit Event' : 'Create Event'">Event Form</h1>
                     <p class="text-muted" th:text="'Club: ' + ${club.name}">Club context</p>
 
-                      <form th:action="${isEdit} ? @{/clubs/{clubId}/events/{eventId}/edit(clubId=${club.id},eventId=${event.id})} : @{/clubs/{clubId}/events(clubId=${club.id})}"
-                          th:object="${eventForm}" method="post" novalidate>
+                                        <form th:action="${isEdit} ? @{/clubs/{clubId}/events/{eventId}/edit(clubId=${club.id},eventId=${event.id})} : @{/clubs/{clubId}/events(clubId=${club.id})}"
+                                                    th:object="${eventForm}" method="post" novalidate>
                         <input th:if="${isEdit}" type="hidden" name="_method" value="put">
 
                         <div class="mb-3">
@@ -40,6 +40,18 @@
                         <div class="mb-3">
                             <label for="location" class="form-label">Location</label>
                             <input id="location" type="text" class="form-control" th:field="*{location}">
+                            <div class="text-danger small" th:if="${#fields.hasErrors('location')}" th:errors="*{location}">Location error</div>
+                            <div class="d-flex flex-wrap gap-2 mt-2">
+                                <button type="button" id="check-weather-js" class="btn btn-outline-primary btn-sm">Check Weather JS</button>
+                                <button type="button"
+                                        class="btn btn-outline-secondary btn-sm"
+                                        th:attr="hx-get=@{/api/weather},hx-include='#location',hx-target='#weather-result',hx-swap='innerHTML'">
+                                    Check Weather HTMX
+                                </button>
+                            </div>
+                            <div id="weather-result" class="mt-2 small text-muted">
+                                <span class="text-secondary">Enter a location and check the weather before submitting.</span>
+                            </div>
                         </div>
 
                         <div class="mb-3">
@@ -57,6 +69,56 @@
         </div>
     </div>
 </main>
+
+<script th:inline="javascript">
+/*<![CDATA[*/
+document.addEventListener('DOMContentLoaded', function () {
+    const checkButton = document.getElementById('check-weather-js');
+    const locationInput = document.getElementById('location');
+    const result = document.getElementById('weather-result');
+
+    if (!checkButton || !locationInput || !result) {
+        return;
+    }
+
+    const renderWeather = function (raining) {
+        if (raining === null || raining === undefined) {
+            return '<span class="text-secondary">Weather data unavailable.</span>';
+        }
+
+        return raining
+            ? '<span class="badge bg-warning text-dark">Raining</span>'
+            : '<span class="badge bg-success">Clear</span>';
+    };
+
+    checkButton.addEventListener('click', async function () {
+        const location = locationInput.value.trim();
+
+        if (!location) {
+            result.innerHTML = '<span class="text-secondary">Enter a location to check the weather.</span>';
+            return;
+        }
+
+        result.innerHTML = '<span class="text-muted">Checking weather...</span>';
+
+        try {
+            const response = await fetch('/api/weather?location=' + encodeURIComponent(location), {
+                headers: { 'Accept': 'application/json' }
+            });
+
+            if (!response.ok) {
+                throw new Error('Weather request failed');
+            }
+
+            const data = await response.json();
+            result.innerHTML = renderWeather(data.raining);
+        } catch (error) {
+            result.innerHTML = '<span class="text-secondary">Weather data unavailable.</span>';
+        }
+    });
+});
+/*]]>*/
+</script>
 
 <th:block th:replace="~{fragments/layout :: scripts}"></th:block>
 </body>

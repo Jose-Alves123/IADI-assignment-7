@@ -22,7 +22,7 @@ class JwtService(
     private val signingKey: SecretKey =
             try {
                 Keys.hmacShaKeyFor(Decoders.BASE64.decode(secretBase64))
-            } catch (_: IllegalArgumentException) {
+            } catch (_: RuntimeException) {
                 Keys.hmacShaKeyFor(secretBase64.toByteArray(StandardCharsets.UTF_8))
             }
 

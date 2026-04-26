@@ -19,6 +19,7 @@ class CookieRedirectAuthenticationEntryPoint : AuthenticationEntryPoint {
     ) {
         val originalTarget = buildOriginalTarget(request)
         val encoded = URLEncoder.encode(originalTarget, StandardCharsets.UTF_8)
+        val loginUrl = buildLoginUrl(request)
 
         response.addCookie(
                 Cookie(SecurityConstants.REDIRECT_COOKIE, encoded).apply {
@@ -27,11 +28,18 @@ class CookieRedirectAuthenticationEntryPoint : AuthenticationEntryPoint {
                     maxAge = 300
                 }
         )
-        response.sendRedirect("/login")
+        response.sendRedirect(loginUrl)
     }
 
     private fun buildOriginalTarget(request: HttpServletRequest): String {
         val query = request.queryString
         return if (query.isNullOrBlank()) request.requestURI else "${request.requestURI}?$query"
+    }
+
+    private fun buildLoginUrl(request: HttpServletRequest): String {
+        val requestUrl = request.requestURL.toString()
+        val requestUri = request.requestURI
+        val baseUrl = requestUrl.removeSuffix(requestUri)
+        return "${baseUrl}${request.contextPath}/login"
     }
 }
